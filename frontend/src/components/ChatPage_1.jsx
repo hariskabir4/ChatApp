@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { io } from 'socket.io-client';
 import axios from 'axios';
 import { useParams } from 'react-router-dom';
+import { FaSmile, FaPaperclip } from 'react-icons/fa';
 import './ChatPage_1.css';
 
 // Create socket connection with auto-reconnect
@@ -15,6 +16,7 @@ const ChatPage_1 = () => {
     const [messages, setMessages] = useState([]);
     const [message, setMessage] = useState('');
     const [connected, setConnected] = useState(false);
+    const [emojiPickerVisible, setEmojiPickerVisible] = useState(false);
 
     useEffect(() => {
         // Connect socket event
@@ -85,28 +87,95 @@ const ChatPage_1 = () => {
         }
     };
 
+    const handleEmojiClick = (emoji) => {
+        setMessage(message + emoji);
+        setEmojiPickerVisible(false);
+    };
+
     return (
-        <div className="chat-container">
-            <h2>Chat with {user2Id}</h2>
-            <div className="chat-history">
-                {messages.map((msg, index) => (
-                    <div
-                        key={msg._id || index}
-                        className={msg.sender === user1Id ? 'message-sent' : 'message-received'}
-                    >
-                        <p>{msg.content}</p>
+        <div className="chat-box_chat">
+            <div className="chat-container_chat">
+                {/* Sidebar */}
+                <div className="chat-sidebar_chat">
+                    <div className="user-info_chat">
+                        <div className="user-avatar_chat">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="placeholder-icon_chat">
+                                <circle cx="12" cy="8" r="4" />
+                                <path d="M12 14c-5 0-9 2-9 4.5V20h18v-1.5c0-2.5-4-4.5-9-4.5z" />
+                            </svg>
+                        </div>
+                        <h3>{user1Id}</h3>
+                        <span className="user-status_chat">Active Now</span>
                     </div>
-                ))}
+                    <div className="search-bar_chat">
+                        <input type="text" placeholder="Search" />
+                    </div>
+                    <div className="chat-categories_chat">
+                        <button className="category_chat">All</button>
+                    </div>
+                    <ul className="chat-list_chat">
+                        <li className="chat-item_chat">
+                            <div className="user-avatar_chat">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="placeholder-icon_chat">
+                                    <circle cx="12" cy="8" r="4" />
+                                    <path d="M12 14c-5 0-9 2-9 4.5V20h18v-1.5c0-2.5-4-4.5-9-4.5z" />
+                                </svg>
+                            </div>
+                            <div className="chat-details_chat">
+                                <h4>{user2Id}</h4>
+                                <p>{messages.length > 0 ? `${messages[messages.length - 1].sender === user1Id ? 'You' : user2Id}: ${messages[messages.length - 1].content}` : 'No messages yet'}</p>
+                            </div>
+                            <span className="chat-time_chat">Now</span>
+                        </li>
+                    </ul>
+                </div>
+
+                {/* Main Chat Area */}
+                <div className="chat-main_chat">
+                    <div className="chat-header_chat">
+                        <div className="user-avatar_chat">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="placeholder-icon_chat">
+                                <circle cx="12" cy="8" r="4" />
+                                <path d="M12 14c-5 0-9 2-9 4.5V20h18v-1.5c0-2.5-4-4.5-9-4.5z" />
+                            </svg>
+                        </div>
+                        <h3>{user2Id}</h3>
+                        <span className="user-status_chat">Active Now</span>
+                    </div>
+                    <div className="chat-messages_chat">
+                        {messages.map((msg, index) => (
+                            <div
+                                key={msg._id || index}
+                                className={`message_chat ${msg.sender === user1Id ? 'sent_chat' : 'received_chat'}`}
+                            >
+                                {msg.content}
+                            </div>
+                        ))}
+                    </div>
+                    <div className="chat-input_chat">
+                        <div className="input-actions_chat">
+                            <FaSmile className="emoji-icon_chat" onClick={() => setEmojiPickerVisible(!emojiPickerVisible)} />
+                            <FaPaperclip className="attachment-icon_chat" />
+                        </div>
+                        <input
+                            type="text"
+                            value={message}
+                            onChange={(e) => setMessage(e.target.value)}
+                            placeholder="Type a message"
+                            onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
+                        />
+                        <button className="send-button_chat" onClick={sendMessage}>Send</button>
+                    </div>
+                    {emojiPickerVisible && (
+                        <div className="emoji-picker_chat">
+                            <span onClick={() => handleEmojiClick('😊')}>😊</span>
+                            <span onClick={() => handleEmojiClick('😂')}>😂</span>
+                            <span onClick={() => handleEmojiClick('😍')}>😍</span>
+                            <span onClick={() => handleEmojiClick('🥺')}>🥺</span>
+                        </div>
+                    )}
+                </div>
             </div>
-            <form onSubmit={sendMessage} className="chat-input">
-                <input
-                    type="text"
-                    value={message}
-                    onChange={(e) => setMessage(e.target.value)}
-                    placeholder="Type your message"
-                />
-                <button type="submit">Send</button>
-            </form>
         </div>
     );
 };
