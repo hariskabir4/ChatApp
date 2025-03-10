@@ -37,15 +37,15 @@ io.on('connection', (socket) => {
     console.log('A user connected');
 
     socket.on('joinChat', ({ senderId, receiverId }) => {
-        const room = `${senderId}_${receiverId}`;
+        // Create consistent room name by sorting IDs
+        const room = [senderId, receiverId].sort().join('_');
         socket.join(room);
         console.log(`User joined chat room: ${room}`);
     });
 
     socket.on('sendMessage', (message) => {
         const room = message.room;
-        console.log('Message received:', message);
-        io.to(room).emit('receiveMessage', message);  // Emit to the room
+        io.in(room).emit('receiveMessage', message);  // Use in() instead of to()
     });
 
     socket.on('disconnect', () => {
