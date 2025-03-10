@@ -11,7 +11,6 @@ const ChatPage_1 = () => {
     const [messages, setMessages] = useState([]);
     const [message, setMessage] = useState('');
 
-    // Fetch chat history on component mount
     useEffect(() => {
         const fetchMessages = async () => {
             try {
@@ -24,12 +23,22 @@ const ChatPage_1 = () => {
 
         fetchMessages();
 
-        // Add user to the socket server
+        // Create a room that works for both sender and receiver
+        const room = [user1Id, user2Id].sort().join('_');
         socket.emit('joinChat', { senderId: user1Id, receiverId: user2Id });
 
         // Listen for incoming messages in real-time
         socket.on('receiveMessage', (newMessage) => {
-            setMessages((prevMessages) => [...prevMessages, newMessage]);
+            setMessages((prevMessages) => {
+                // Check if message already exists to prevent duplicates
+                const messageExists = prevMessages.some(
+                    msg => msg._id === newMessage._id
+                );
+                if (messageExists) {
+                    return prevMessages;
+                }
+                return [...prevMessages, newMessage];
+            });
         });
 
         // Cleanup listener on unmount
@@ -38,7 +47,6 @@ const ChatPage_1 = () => {
         };
     }, [user1Id, user2Id]);
 
-    // Send a message
     const sendMessage = async () => {
         if (message.trim() === '') return;
 
@@ -47,13 +55,14 @@ const ChatPage_1 = () => {
         try {
             // Send message to the backend
             const res = await axios.post('http://localhost:5000/api/messages', newMessage);
+            
+            // Create a consistent room name for both users
+            const room = [user1Id, user2Id].sort().join('_');
+            
+            // Emit message to all users in the room via socket
+            socket.emit('sendMessage', { ...res.data, room });
 
-            // Emit message to the other user via socket
-            socket.emit('sendMessage', { ...res.data, room: `${user1Id}_${user2Id}` });
-
-            // Add the sent message to the UI
-            setMessages((prevMessages) => [...prevMessages, res.data]);
-
+            // Clear the input field
             setMessage('');
         } catch (err) {
             console.error('Error sending message:', err);
