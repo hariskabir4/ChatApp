@@ -34,22 +34,25 @@ app.use('/api/users', userRoutes);     // Use your user routes for handling user
 
 // Socket.io for real-time communication
 io.on('connection', (socket) => {
-    console.log('A user connected');
+    console.log('A user connected:', socket.id);
 
-    socket.on('joinChat', ({ senderId, receiverId }) => {
-        // Create consistent room name by sorting IDs
-        const room = [senderId, receiverId].sort().join('_');
-        socket.join(room);
-        console.log(`User joined chat room: ${room}`);
+    socket.on('joinRoom', (room) => {
+        if (room) {
+            socket.join(room);
+            console.log(`User ${socket.id} joined room: ${room}`);
+        }
     });
 
-    socket.on('sendMessage', (message) => {
-        const room = message.room;
-        io.in(room).emit('receiveMessage', message);  // Use in() instead of to()
+    socket.on('sendMessage', (messageData) => {
+        const { room, ...message } = messageData;
+        console.log(`Sending message in room ${room}:`, message);
+
+        // Broadcast to all clients in the room
+        io.to(room).emit('messageReceived', message);
     });
 
     socket.on('disconnect', () => {
-        console.log('User disconnected');
+        console.log('User disconnected:', socket.id);
     });
 });
 

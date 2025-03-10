@@ -4,65 +4,81 @@ import axios from 'axios';
 import { useParams } from 'react-router-dom';
 import './ChatPage_1.css';
 
-const socket = io('http://localhost:5000'); // Connect to backend WebSocket server
+// Create socket connection with auto-reconnect
+const socket = io('http://localhost:5000', {
+    reconnection: true,
+    reconnectionAttempts: Infinity
+});
 
 const ChatPage_1 = () => {
     const { user1Id, user2Id } = useParams();
     const [messages, setMessages] = useState([]);
     const [message, setMessage] = useState('');
+    const [connected, setConnected] = useState(false);
 
     useEffect(() => {
+        // Connect socket event
+        socket.on('connect', () => {
+            console.log('Socket connected');
+            setConnected(true);
+            
+            // Join room after connection
+            const room = [user1Id, user2Id].sort().join('_');
+            socket.emit('joinRoom', room);
+        });
+
+        // Fetch initial messages
         const fetchMessages = async () => {
             try {
                 const res = await axios.get(`http://localhost:5000/api/messages/${user1Id}/${user2Id}`);
                 setMessages(res.data);
             } catch (err) {
-                console.error('Error fetching chat history:', err);
+                console.error('Error fetching messages:', err);
             }
         };
-
         fetchMessages();
 
-        // Create a room that works for both sender and receiver
-        const room = [user1Id, user2Id].sort().join('_');
-        socket.emit('joinChat', { senderId: user1Id, receiverId: user2Id });
-
-        // Listen for incoming messages in real-time
-        socket.on('receiveMessage', (newMessage) => {
-            setMessages((prevMessages) => {
-                // Check if message already exists to prevent duplicates
-                const messageExists = prevMessages.some(
-                    msg => msg._id === newMessage._id
-                );
-                if (messageExists) {
-                    return prevMessages;
+        // Message listener
+        const handleNewMessage = (newMsg) => {
+            console.log('New message received:', newMsg);
+            setMessages(prev => {
+                // Check if message already exists
+                const exists = prev.some(m => m._id === newMsg._id);
+                if (!exists) {
+                    return [...prev, newMsg];
                 }
-                return [...prevMessages, newMessage];
+                return prev;
             });
-        });
+        };
 
-        // Cleanup listener on unmount
+        // Set up message listener
+        socket.on('messageReceived', handleNewMessage);
+
+        // Cleanup
         return () => {
-            socket.off('receiveMessage');
+            socket.off('connect');
+            socket.off('messageReceived');
         };
     }, [user1Id, user2Id]);
 
-    const sendMessage = async () => {
-        if (message.trim() === '') return;
-
-        const newMessage = { sender: user1Id, receiver: user2Id, content: message };
+    const sendMessage = async (e) => {
+        e?.preventDefault();
+        if (!message.trim() || !connected) return;
 
         try {
-            // Send message to the backend
-            const res = await axios.post('http://localhost:5000/api/messages', newMessage);
-            
-            // Create a consistent room name for both users
+            // Send to backend
+            const res = await axios.post('http://localhost:5000/api/messages', {
+                sender: user1Id,
+                receiver: user2Id,
+                content: message.trim()
+            });
+
+            // Emit through socket
             const room = [user1Id, user2Id].sort().join('_');
-            
-            // Emit message to all users in the room via socket
             socket.emit('sendMessage', { ...res.data, room });
 
-            // Clear the input field
+            // Update local state immediately
+            setMessages(prev => [...prev, res.data]);
             setMessage('');
         } catch (err) {
             console.error('Error sending message:', err);
@@ -70,25 +86,27 @@ const ChatPage_1 = () => {
     };
 
     return (
-        <div>
+        <div className="chat-container">
             <h2>Chat with {user2Id}</h2>
             <div className="chat-history">
                 {messages.map((msg, index) => (
                     <div
-                        key={index}
+                        key={msg._id || index}
                         className={msg.sender === user1Id ? 'message-sent' : 'message-received'}
                     >
                         <p>{msg.content}</p>
                     </div>
                 ))}
             </div>
-            <input
-                type="text"
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-                placeholder="Type your message"
-            />
-            <button onClick={sendMessage}>Send</button>
+            <form onSubmit={sendMessage} className="chat-input">
+                <input
+                    type="text"
+                    value={message}
+                    onChange={(e) => setMessage(e.target.value)}
+                    placeholder="Type your message"
+                />
+                <button type="submit">Send</button>
+            </form>
         </div>
     );
 };
