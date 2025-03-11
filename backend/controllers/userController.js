@@ -43,6 +43,7 @@ exports.getUserChats = async (req, res) => {
                     },
                     lastMessage: { $first: "$content" },
                     lastMessageTime: { $first: "$timestamp" },
+                    lastMessageSender: { $first: "$sender" },
                     messageCount: { $sum: 1 }
                 }
             },
@@ -52,6 +53,7 @@ exports.getUserChats = async (req, res) => {
                     otherUser: "$_id",
                     lastMessage: 1,
                     lastMessageTime: 1,
+                    lastMessageSender: 1,
                     messageCount: 1
                 }
             },

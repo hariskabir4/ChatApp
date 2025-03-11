@@ -22,6 +22,9 @@ const ChatPage_1 = () => {
     const [searchQuery, setSearchQuery] = useState('');
     const messagesEndRef = useRef(null);
 
+    // Check if we're on the chats overview page
+    const isChatsOverview = user2Id === 'chats' || !user2Id;
+
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     };
@@ -47,23 +50,27 @@ const ChatPage_1 = () => {
             console.log('Socket connected');
             setConnected(true);
             
-            // Join room after connection
-            const room = [user1Id, user2Id].sort().join('_');
-            socket.emit('joinRoom', room);
+            // Join room after connection if not in overview
+            if (!isChatsOverview) {
+                const room = [user1Id, user2Id].sort().join('_');
+                socket.emit('joinRoom', room);
+            }
         });
 
-        // Fetch initial messages
+        // Fetch initial messages only if not in overview
         const fetchMessages = async () => {
-            try {
-                const res = await axios.get(`http://localhost:5000/api/messages/${user1Id}/${user2Id}`);
-                console.log('Fetched messages:', res.data);
-                // Sort messages by timestamp
-                const sortedMessages = res.data.sort((a, b) => 
-                    new Date(a.timestamp) - new Date(b.timestamp)
-                );
-                setMessages(sortedMessages);
-            } catch (err) {
-                console.error('Error fetching messages:', err);
+            if (!isChatsOverview) {
+                try {
+                    const res = await axios.get(`http://localhost:5000/api/messages/${user1Id}/${user2Id}`);
+                    console.log('Fetched messages:', res.data);
+                    // Sort messages by timestamp
+                    const sortedMessages = res.data.sort((a, b) => 
+                        new Date(a.timestamp) - new Date(b.timestamp)
+                    );
+                    setMessages(sortedMessages);
+                } catch (err) {
+                    console.error('Error fetching messages:', err);
+                }
             }
         };
         fetchMessages();
@@ -141,12 +148,25 @@ const ChatPage_1 = () => {
     };
 
     const handleChatClick = (otherUserId) => {
-        navigate(`/chat/${user1Id}/${otherUserId}`);
+        if (otherUserId) {
+            navigate(`/chat/${user1Id}/${otherUserId}`);
+            // Reset message state when changing chats
+            setMessage('');
+            setEmojiPickerVisible(false);
+        }
     };
 
     const filteredChats = chatHistory.filter(chat => 
         chat.otherUser.toLowerCase().includes(searchQuery.toLowerCase())
     );
+
+    const formatLastMessage = (chat) => {
+        if (chat.lastMessageSender === user1Id) {
+            return `You: ${chat.lastMessage}`;  // Show "You:" for messages from current user
+        } else {
+            return `${chat.otherUser}: ${chat.lastMessage}`;  // Show "UserID:" for messages from other users
+        }
+    };
 
     return (
         <div className="chat-box_chat">
@@ -190,7 +210,9 @@ const ChatPage_1 = () => {
                                 </div>
                                 <div className="chat-details_chat">
                                     <h4>{chat.otherUser}</h4>
-                                    <p>{chat.lastMessage}</p>
+                                    <p>{chat.lastMessageSender === user1Id ? 
+                                        `You: ${chat.lastMessage}` : 
+                                        `${chat.otherUser}: ${chat.lastMessage}`}</p>
                                 </div>
                                 <span className="chat-time_chat">
                                     {new Date(chat.lastMessageTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -201,51 +223,105 @@ const ChatPage_1 = () => {
                 </div>
 
                 {/* Main Chat Area */}
-                <div className="chat-main_chat">
-                    <div className="chat-header_chat">
-                        <div className="user-avatar_chat">
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="placeholder-icon_chat">
-                                <circle cx="12" cy="8" r="4" />
-                                <path d="M12 14c-5 0-9 2-9 4.5V20h18v-1.5c0-2.5-4-4.5-9-4.5z" />
-                            </svg>
+                {isChatsOverview ? (
+                    <div className="chat-main_chat" style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        backgroundColor: '#f9f9f9'
+                    }}>
+                        <div style={{
+                            textAlign: 'center',
+                            padding: '40px',
+                            maxWidth: '600px'
+                        }}>
+                            <h2 style={{ 
+                                marginBottom: '20px',
+                                color: '#333',
+                                fontSize: '24px'
+                            }}>Welcome to Your Chat Space!</h2>
+                            {chatHistory.length > 0 ? (
+                                <div>
+                                    <p style={{
+                                        color: '#666',
+                                        lineHeight: '1.6',
+                                        marginBottom: '15px'
+                                    }}>
+                                        Your recent conversations appear in the sidebar.
+                                    </p>
+                                    <p style={{
+                                        color: '#666',
+                                        lineHeight: '1.6'
+                                    }}>
+                                        Click on any conversation to continue chatting!
+                                    </p>
+                                </div>
+                            ) : (
+                                <div>
+                                    <p style={{
+                                        color: '#666',
+                                        lineHeight: '1.6',
+                                        marginBottom: '15px'
+                                    }}>
+                                        You haven't started any conversations yet.
+                                    </p>
+                                    <p style={{
+                                        color: '#666',
+                                        lineHeight: '1.6'
+                                    }}>
+                                        Start chatting with others to build your chat history!
+                                    </p>
+                                </div>
+                            )}
                         </div>
-                        <h3>{user2Id}</h3>
-                        <span className="user-status_chat">Active Now</span>
                     </div>
-                    <div className="chat-messages_chat">
-                        {messages.map((msg, index) => (
-                            <div
-                                key={msg._id || index}
-                                className={`message_chat ${msg.sender === user1Id ? 'sent_chat' : 'received_chat'}`}
-                            >
-                                {msg.content}
+                ) : (
+                    <div className="chat-main_chat">
+                        <div className="chat-header_chat">
+                            <div className="user-avatar_chat">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="placeholder-icon_chat">
+                                    <circle cx="12" cy="8" r="4" />
+                                    <path d="M12 14c-5 0-9 2-9 4.5V20h18v-1.5c0-2.5-4-4.5-9-4.5z" />
+                                </svg>
                             </div>
-                        ))}
-                        <div ref={messagesEndRef} />
-                    </div>
-                    <div className="chat-input_chat">
-                        <div className="input-actions_chat">
-                            <FaSmile className="emoji-icon_chat" onClick={() => setEmojiPickerVisible(!emojiPickerVisible)} />
-                            <FaPaperclip className="attachment-icon_chat" />
+                            <h3>{user2Id}</h3>
+                            <span className="user-status_chat">Active Now</span>
                         </div>
-                        <input
-                            type="text"
-                            value={message}
-                            onChange={(e) => setMessage(e.target.value)}
-                            placeholder="Type a message"
-                            onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
-                        />
-                        <button className="send-button_chat" onClick={sendMessage}>Send</button>
-                    </div>
-                    {emojiPickerVisible && (
-                        <div className="emoji-picker_chat">
-                            <span onClick={() => handleEmojiClick('😊')}>😊</span>
-                            <span onClick={() => handleEmojiClick('😂')}>😂</span>
-                            <span onClick={() => handleEmojiClick('😍')}>😍</span>
-                            <span onClick={() => handleEmojiClick('🥺')}>🥺</span>
+                        <div className="chat-messages_chat">
+                            {messages.map((msg, index) => (
+                                <div
+                                    key={msg._id || index}
+                                    className={`message_chat ${msg.sender === user1Id ? 'sent_chat' : 'received_chat'}`}
+                                >
+                                    {msg.content}
+                                </div>
+                            ))}
+                            <div ref={messagesEndRef} />
                         </div>
-                    )}
-                </div>
+                        <div className="chat-input_chat">
+                            <div className="input-actions_chat">
+                                <FaSmile className="emoji-icon_chat" onClick={() => setEmojiPickerVisible(!emojiPickerVisible)} />
+                                <FaPaperclip className="attachment-icon_chat" />
+                            </div>
+                            <input
+                                type="text"
+                                value={message}
+                                onChange={(e) => setMessage(e.target.value)}
+                                placeholder="Type a message"
+                                onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
+                            />
+                            <button className="send-button_chat" onClick={sendMessage}>Send</button>
+                        </div>
+                        {emojiPickerVisible && (
+                            <div className="emoji-picker_chat">
+                                <span onClick={() => handleEmojiClick('😊')}>😊</span>
+                                <span onClick={() => handleEmojiClick('😂')}>😂</span>
+                                <span onClick={() => handleEmojiClick('😍')}>😍</span>
+                                <span onClick={() => handleEmojiClick('🥺')}>🥺</span>
+                            </div>
+                        )}
+                    </div>
+                )}
             </div>
         </div>
     );
