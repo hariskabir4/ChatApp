@@ -168,6 +168,79 @@ const ChatPage_1 = () => {
         }
     };
 
+    // Add these helper functions at the top of your component
+    const formatMessageTime = (timestamp) => {
+        return new Date(timestamp).toLocaleTimeString('en-US', { 
+            hour: 'numeric', 
+            minute: '2-digit',
+            hour12: true 
+        });
+    };
+
+    const formatDateHeader = (timestamp) => {
+        const date = new Date(timestamp);
+        const now = new Date();
+        const diffDays = Math.floor((now - date) / (1000 * 60 * 60 * 24));
+
+        if (diffDays === 0) {
+            return 'Today';
+        } else if (diffDays === 1) {
+            return 'Yesterday';
+        } else if (diffDays < 7) {
+            return date.toLocaleDateString('en-US', { weekday: 'long' });
+        } else {
+            return date.toLocaleDateString('en-US', { 
+                month: 'short', 
+                day: 'numeric',
+                year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined
+            });
+        }
+    };
+
+    const groupMessagesByDate = (messages) => {
+        const groups = {};
+        
+        messages.forEach(message => {
+            const date = new Date(message.timestamp).toLocaleDateString();
+            if (!groups[date]) {
+                groups[date] = {
+                    timestamp: message.timestamp,
+                    messages: []
+                };
+            }
+            groups[date].messages.push(message);
+        });
+
+        return Object.values(groups);
+    };
+
+    // Update the messages section in your render method
+    const renderMessages = () => (
+        <div className="chat-messages_chat">
+            {groupMessagesByDate(messages).map((group, groupIndex) => (
+                <div key={groupIndex} className="message-group">
+                    <div className="date-header">
+                        <span>{formatDateHeader(group.timestamp)}</span>
+                    </div>
+                    {group.messages.map((msg, msgIndex) => (
+                        <div
+                            key={msg._id || msgIndex}
+                            className={`message-wrapper ${msg.sender === user1Id ? 'sent-wrapper' : 'received-wrapper'}`}
+                        >
+                            <div className="message-time">
+                                {formatMessageTime(msg.timestamp)}
+                            </div>
+                            <div className={`message_chat ${msg.sender === user1Id ? 'sent_chat' : 'received_chat'}`}>
+                                {msg.content}
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            ))}
+            <div ref={messagesEndRef} />
+        </div>
+    );
+
     return (
         <div className="chat-box_chat">
             <div className="chat-container_chat">
@@ -287,17 +360,7 @@ const ChatPage_1 = () => {
                             <h3>{user2Id}</h3>
                             <span className="user-status_chat">Active Now</span>
                         </div>
-                        <div className="chat-messages_chat">
-                            {messages.map((msg, index) => (
-                                <div
-                                    key={msg._id || index}
-                                    className={`message_chat ${msg.sender === user1Id ? 'sent_chat' : 'received_chat'}`}
-                                >
-                                    {msg.content}
-                                </div>
-                            ))}
-                            <div ref={messagesEndRef} />
-                        </div>
+                        {renderMessages()}
                         <div className="chat-input_chat">
                             <div className="input-actions_chat">
                                 <FaSmile className="emoji-icon_chat" onClick={() => setEmojiPickerVisible(!emojiPickerVisible)} />
