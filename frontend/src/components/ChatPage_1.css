@@ -285,3 +285,45 @@
 .emoji-picker_chat span:hover {
   background-color: #f0f0f0;
 }
+
+.status-indicator {
+    position: absolute;
+    bottom: 2px;
+    right: 2px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: #ccc;
+}
+
+.status-indicator.active {
+    background-color: #4caf50;
+}
+
+.unread-count {
+    background-color: #4caf50;
+    color: white;
+    border-radius: 50%;
+    padding: 2px 6px;
+    font-size: 12px;
+    margin-left: 8px;
+}
+
+.message-info {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    color: #666;
+    margin-top: 2px;
+}
+
+.message-status {
+    color: #4caf50;
+}
+
+.chat-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}

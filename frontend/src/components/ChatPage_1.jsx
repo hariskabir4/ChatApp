@@ -21,6 +21,8 @@ const ChatPage_1 = () => {
     const [chatHistory, setChatHistory] = useState([]);
     const [searchQuery, setSearchQuery] = useState('');
     const messagesEndRef = useRef(null);
+    const [unreadCounts, setUnreadCounts] = useState({});
+    const [userStatuses, setUserStatuses] = useState({});
 
     // Check if we're on the chats overview page
     const isChatsOverview = user2Id === 'chats' || !user2Id;
@@ -109,6 +111,36 @@ const ChatPage_1 = () => {
         };
     }, [user1Id, user2Id]);
 
+    useEffect(() => {
+        socket.on('userStatus', ({ userId, status }) => {
+            setUserStatuses(prev => ({
+                ...prev,
+                [userId]: status === 'online'
+            }));
+        });
+
+        socket.on('messageStatus', ({ messageId, status }) => {
+            setMessages(prev => prev.map(msg => 
+                msg._id === messageId ? { ...msg, status } : msg
+            ));
+        });
+
+        socket.on('messageDelivered', ({ messageId }) => {
+            updateMessageStatus(messageId, 'delivered');
+        });
+
+        socket.on('messageSeen', ({ messageId }) => {
+            updateMessageStatus(messageId, 'seen');
+        });
+
+        return () => {
+            socket.off('userStatus');
+            socket.off('messageStatus');
+            socket.off('messageDelivered');
+            socket.off('messageSeen');
+        };
+    }, []);
+
     const sendMessage = async (e) => {
         e?.preventDefault();
         if (!message.trim() || !connected) return;
@@ -168,6 +200,80 @@ const ChatPage_1 = () => {
         }
     };
 
+    const updateMessageStatus = async (messageId, status) => {
+        try {
+            await axios.put(`http://localhost:5000/api/messages/${messageId}/status`, { status });
+        } catch (error) {
+            console.error('Error updating message status:', error);
+        }
+    };
+
+    const MessageBubble = ({ msg }) => (
+        <div className={`message_chat ${msg.sender === user1Id ? 'sent_chat' : 'received_chat'}`}>
+            <div className="message-content">{msg.content}</div>
+            <div className="message-info">
+                <span className="message-time">
+                    {new Date(msg.timestamp).toLocaleString('en-US', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        month: 'short',
+                        day: 'numeric'
+                    })}
+                </span>
+                {msg.sender === user1Id && (
+                    <span className="message-status">
+                        {msg.status === 'seen' ? '✓✓' : 
+                         msg.status === 'delivered' ? '✓' : 
+                         '•'}
+                    </span>
+                )}
+            </div>
+        </div>
+    );
+
+    const ChatListItem = ({ chat }) => (
+        <li 
+            className={`chat-item_chat ${chat.otherUser === user2Id ? 'active_chat' : ''}`}
+            onClick={() => handleChatClick(chat.otherUser)}
+        >
+            <div className="user-avatar_chat">
+                <div className={`status-indicator ${userStatuses[chat.otherUser] ? 'active' : ''}`} />
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="placeholder-icon_chat">
+                    <circle cx="12" cy="8" r="4" />
+                    <path d="M12 14c-5 0-9 2-9 4.5V20h18v-1.5c0-2.5-4-4.5-9-4.5z" />
+                </svg>
+            </div>
+            <div className="chat-details_chat">
+                <div className="chat-header">
+                    <h4>{chat.otherUser}</h4>
+                    {unreadCounts[chat.otherUser] > 0 && (
+                        <span className="unread-count">{unreadCounts[chat.otherUser]}</span>
+                    )}
+                </div>
+                <p>{formatLastMessage(chat)}</p>
+            </div>
+            <span className="chat-time_chat">
+                {formatMessageTime(chat.lastMessageTime)}
+            </span>
+        </li>
+    );
+
+    const formatMessageTime = (timestamp) => {
+        const date = new Date(timestamp);
+        const now = new Date();
+        const diffDays = Math.floor((now - date) / (1000 * 60 * 60 * 24));
+        
+        if (diffDays === 0) {
+            return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        } else if (diffDays === 1) {
+            return 'Yesterday';
+        } else if (diffDays < 7) {
+            return date.toLocaleDateString([], { weekday: 'short' });
+        } else {
+            return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+        }
+    };
+
     return (
         <div className="chat-box_chat">
             <div className="chat-container_chat">
@@ -196,28 +302,7 @@ const ChatPage_1 = () => {
                     </div>
                     <ul className="chat-list_chat">
                         {filteredChats.map((chat) => (
-                            <li 
-                                key={chat.otherUser}
-                                className={`chat-item_chat ${chat.otherUser === user2Id ? 'active_chat' : ''}`}
-                                onClick={() => handleChatClick(chat.otherUser)}
-                                style={{ cursor: 'pointer' }}
-                            >
-                                <div className="user-avatar_chat">
-                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="placeholder-icon_chat">
-                                        <circle cx="12" cy="8" r="4" />
-                                        <path d="M12 14c-5 0-9 2-9 4.5V20h18v-1.5c0-2.5-4-4.5-9-4.5z" />
-                                    </svg>
-                                </div>
-                                <div className="chat-details_chat">
-                                    <h4>{chat.otherUser}</h4>
-                                    <p>{chat.lastMessageSender === user1Id ? 
-                                        `You: ${chat.lastMessage}` : 
-                                        `${chat.otherUser}: ${chat.lastMessage}`}</p>
-                                </div>
-                                <span className="chat-time_chat">
-                                    {new Date(chat.lastMessageTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                </span>
-                            </li>
+                            <ChatListItem key={chat.otherUser} chat={chat} />
                         ))}
                     </ul>
                 </div>
@@ -289,12 +374,7 @@ const ChatPage_1 = () => {
                         </div>
                         <div className="chat-messages_chat">
                             {messages.map((msg, index) => (
-                                <div
-                                    key={msg._id || index}
-                                    className={`message_chat ${msg.sender === user1Id ? 'sent_chat' : 'received_chat'}`}
-                                >
-                                    {msg.content}
-                                </div>
+                                <MessageBubble key={msg._id || index} msg={msg} />
                             ))}
                             <div ref={messagesEndRef} />
                         </div>

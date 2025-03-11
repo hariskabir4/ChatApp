@@ -34,7 +34,22 @@ app.use('/api/users', userRoutes);     // Use your user routes for handling user
 
 // Socket.io for real-time communication
 io.on('connection', (socket) => {
-    console.log('A user connected:', socket.id);
+    let userId;
+
+    socket.on('userConnected', (id) => {
+        userId = id;
+        socket.broadcast.emit('userStatus', { userId, status: 'online' });
+    });
+
+    socket.on('disconnect', () => {
+        if (userId) {
+            socket.broadcast.emit('userStatus', { userId, status: 'offline' });
+        }
+    });
+
+    socket.on('messageSeen', ({ messageId, userId }) => {
+        socket.broadcast.emit('messageSeen', { messageId, userId });
+    });
 
     socket.on('joinRoom', (room) => {
         if (room) {
@@ -49,10 +64,6 @@ io.on('connection', (socket) => {
 
         // Broadcast to all clients in the room
         io.to(room).emit('messageReceived', message);
-    });
-
-    socket.on('disconnect', () => {
-        console.log('User disconnected:', socket.id);
     });
 });
 

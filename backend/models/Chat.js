@@ -18,7 +18,13 @@ const chatSchema = new mongoose.Schema({
     timestamp: {
         type: Date,
         default: Date.now
-    }
+    },
+    status: { 
+        type: String, 
+        enum: ['sent', 'delivered', 'seen'], 
+        default: 'sent' 
+    },
+    isRead: { type: Boolean, default: false }
 }, {
     timestamps: true
 });
