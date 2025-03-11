@@ -10,7 +10,7 @@ const getChatHistory = async (req, res) => {
                 { sender: senderId, receiver: receiverId },
                 { sender: receiverId, receiver: senderId },
             ],
-        }).sort({ createdAt: 1 }); // Sort messages by creation time
+        }).sort({ timestamp: 1 }); // Sort messages by timestamp in ascending order
 
         res.status(200).json(messages);
     } catch (error) {
@@ -28,6 +28,7 @@ const sendMessage = async (req, res) => {
             sender,
             receiver,
             content,
+            timestamp: new Date() // Explicitly set timestamp
         });
 
         const savedMessage = await newMessage.save();
